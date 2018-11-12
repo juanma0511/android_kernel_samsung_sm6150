@@ -2072,5 +2072,8 @@ static inline void security_delete_hooks(struct security_hook_list *hooks,
 
 extern int __init security_module_enable(const char *module);
 extern void __init capability_add_hooks(void);
+#ifdef CONFIG_SECURITY
+void __init lsm_early_cred(struct cred *cred);
+#endif
 
 #endif /* ! __LINUX_LSM_HOOKS_H */

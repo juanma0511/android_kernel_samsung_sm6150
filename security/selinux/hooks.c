@@ -338,7 +338,6 @@ static void cred_init_security(void)
 		panic("SELinux:  Failed to initialize initial task.\n");
 #endif
 	tsec->osid = tsec->sid = SECINITSID_KERNEL;
-	cred->security = tsec;
 }
 
 /*
@@ -4108,60 +4107,15 @@ static int selinux_task_alloc(struct task_struct *task,
 }
 
 /*
- * allocate the SELinux part of blank credentials
- */
-static int selinux_cred_alloc_blank(struct cred *cred, gfp_t gfp)
-{
-	struct task_security_struct *tsec;
-
-	tsec = kzalloc(sizeof(struct task_security_struct), gfp);
-	if (!tsec)
-		return -ENOMEM;
-
-	cred->security = tsec;
-	return 0;
-}
-
-/*
- * detach and free the LSM part of a set of credentials
- */
-static void selinux_cred_free(struct cred *cred)
-{
-	struct task_security_struct *tsec = selinux_cred(cred);
-	/*
-	 * cred->security == NULL if security_cred_alloc_blank() or
-	 * security_prepare_creds() returned an error.
-	 */
-	BUG_ON(cred->security && (unsigned long) cred->security < PAGE_SIZE);
-#ifdef CONFIG_RKP_KDP
-	if (rkp_ro_page((unsigned long)cred)) {
-		uh_call(UH_APP_RKP, RKP_KDP_X45, (u64) &cred->security, 7, 0, 0);
-	} else
-#endif
-	cred->security = (void *) 0x7UL;
-#ifdef CONFIG_RKP_KDP
-	rkp_free_security((unsigned long)tsec);
-#else
-	kfree(tsec);
-#endif
-}
-
-/*
  * prepare a new set of credentials for modification
  */
 static int selinux_cred_prepare(struct cred *new, const struct cred *old,
 				gfp_t gfp)
 {
-	const struct task_security_struct *old_tsec;
-	struct task_security_struct *tsec;
+	const struct task_security_struct *old_tsec = selinux_cred(old);
+	struct task_security_struct *tsec = selinux_cred(new);
 
-	old_tsec = selinux_cred(old);
-
-	tsec = kmemdup(old_tsec, sizeof(struct task_security_struct), gfp);
-	if (!tsec)
-		return -ENOMEM;
-
-	new->security = tsec;
+	*tsec = *old_tsec;
 	return 0;
 }
 
@@ -6894,6 +6848,10 @@ static int selinux_perf_event_write(struct perf_event *event)
 }
 #endif
 
+struct lsm_blob_sizes selinux_blob_sizes __lsm_ro_after_init = {
+	.lbs_cred = sizeof(struct task_security_struct),
+};
+
 // CONFIG_RKP_KDP
 static struct security_hook_list selinux_hooks[] __lsm_ro_after_init_kdp = {
 	LSM_HOOK_INIT(binder_set_context_mgr, selinux_binder_set_context_mgr),
@@ -6978,8 +6936,6 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init_kdp = {
 	LSM_HOOK_INIT(file_open, selinux_file_open),
 
 	LSM_HOOK_INIT(task_alloc, selinux_task_alloc),
-	LSM_HOOK_INIT(cred_alloc_blank, selinux_cred_alloc_blank),
-	LSM_HOOK_INIT(cred_free, selinux_cred_free),
 	LSM_HOOK_INIT(cred_prepare, selinux_cred_prepare),
 	LSM_HOOK_INIT(cred_transfer, selinux_cred_transfer),
 	LSM_HOOK_INIT(kernel_act_as, selinux_kernel_act_as),
@@ -7218,7 +7174,13 @@ void selinux_complete_init(void)
 
 /* SELinux requires early initialization in order to label
    all processes and objects when they are created. */
-security_initcall(selinux_init);
+DEFINE_LSM(selinux) = {
+	.name = "selinux",
+	.flags = LSM_FLAG_LEGACY_MAJOR | LSM_FLAG_EXCLUSIVE,
+	.enabled = &selinux_enabled,
+	.blobs = &selinux_blob_sizes,
+	.init = selinux_init,
+};
 
 #if defined(CONFIG_NETFILTER)
 
