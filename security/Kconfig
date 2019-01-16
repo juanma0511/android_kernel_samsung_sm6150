@@ -236,6 +236,7 @@ source security/apparmor/Kconfig
 source security/loadpin/Kconfig
 source security/yama/Kconfig
 source security/mstdrv/Kconfig
+source security/safesetid/Kconfig
 
 source security/integrity/Kconfig
 source security/samsung/five/Kconfig
@@ -274,7 +275,7 @@ endchoice
 
 config LSM
 	string "Ordered list of enabled LSMs"
-	default "yama,loadpin,integrity,selinux,smack,tomoyo,apparmor,bpf"
+	default "yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor,bpf"
 	help
 	  A comma-separated list of LSMs, in initialization order.
 	  Any LSMs left off this list will be ignored. This can be
