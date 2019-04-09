@@ -72,6 +72,7 @@ struct btf_type {
 #define BTF_KIND_FUNC_PROTO	13	/* Function Proto	*/
 #define BTF_KIND_MAX		13
 #define NR_BTF_KINDS		14
+#define BTF_KIND_DATASEC	15	/* Section	*/
 
 /* For some specific BTF_KIND, "struct btf_type" is immediately
  * followed by extra data.
