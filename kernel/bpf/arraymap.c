@@ -135,7 +135,7 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
 	array->map.max_entries = attr->max_entries;
 	array->map.map_flags = attr->map_flags;
 	array->map.numa_node = numa_node;
-	array->map.pages = cost;
+	array->map.memory.pages = cost;
 	array->elem_size = elem_size;
 
 	if (percpu && bpf_array_alloc_percpu(array)) {
