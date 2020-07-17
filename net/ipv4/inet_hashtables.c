@@ -211,6 +211,63 @@ static inline int compute_score(struct sock *sk, struct net *net,
  */
 
 /* called with rcu_read_lock() : No refcount taken on the socket */
+static struct sock *inet_lhash2_lookup(struct net *net,
+				struct inet_listen_hashbucket *ilb2,
+				struct sk_buff *skb, int doff,
+				const __be32 saddr, __be16 sport,
+				const __be32 daddr, const unsigned short hnum,
+				const int dif, const int sdif)
+{
+	bool exact_dif = inet_exact_dif_match(net, skb);
+	struct inet_connection_sock *icsk;
+	struct sock *sk, *result = NULL;
+	int score, hiscore = 0;
+	u32 phash = 0;
+
+	inet_lhash2_for_each_icsk_rcu(icsk, &ilb2->head) {
+		sk = (struct sock *)icsk;
+		score = compute_score(sk, net, hnum, daddr,
+				      dif, sdif, exact_dif);
+		if (score > hiscore) {
+			if (sk->sk_reuseport) {
+				phash = inet_ehashfn(net, daddr, hnum,
+						     saddr, sport);
+				result = reuseport_select_sock(sk, phash,
+							       skb, doff);
+				if (result)
+					return result;
+			}
+			result = sk;
+			hiscore = score;
+		}
+	}
+
+	return result;
+}
+
+static inline struct sock *inet_lookup_run_bpf(struct net *net,
+					       struct inet_hashinfo *hashinfo,
+					       struct sk_buff *skb, int doff,
+					       __be32 saddr, __be16 sport,
+					       __be32 daddr, u16 hnum)
+{
+	struct sock *sk, *reuse_sk;
+	bool no_reuseport;
+
+	if (hashinfo != &tcp_hashinfo)
+		return NULL; /* only TCP is supported */
+
+	no_reuseport = bpf_sk_lookup_run_v4(net, IPPROTO_TCP,
+					    saddr, sport, daddr, hnum, &sk);
+	if (no_reuseport || IS_ERR_OR_NULL(sk))
+		return sk;
+
+	reuse_sk = lookup_reuseport(net, sk, skb, saddr, sport, daddr, hnum);
+	if (reuse_sk)
+		sk = reuse_sk;
+	return sk;
+}
+
 struct sock *__inet_lookup_listener(struct net *net,
 				    struct inet_hashinfo *hashinfo,
 				    struct sk_buff *skb, int doff,
@@ -226,6 +283,45 @@ struct sock *__inet_lookup_listener(struct net *net,
 	struct hlist_nulls_node *node;
 	u32 phash = 0;
 
+	if (ilb->count <= 10 || !hashinfo->lhash2)
+		goto port_lookup;
+
+	/* Too many sk in the ilb bucket (which is hashed by port alone).
+	 * Try lhash2 (which is hashed by port and addr) instead.
+	 */
+
+	/* Lookup redirect from BPF */
+	if (static_branch_unlikely(&bpf_sk_lookup_enabled)) {
+		result = inet_lookup_run_bpf(net, hashinfo, skb, doff,
+					     saddr, sport, daddr, hnum);
+		if (result)
+			goto done;
+	}
+
+	hash2 = ipv4_portaddr_hash(net, daddr, hnum);
+	ilb2 = inet_lhash2_bucket(hashinfo, hash2);
+	if (ilb2->count > ilb->count)
+		goto port_lookup;
+
+	result = inet_lhash2_lookup(net, ilb2, skb, doff,
+				    saddr, sport, daddr, hnum,
+				    dif, sdif);
+	if (result)
+		goto done;
+
+	/* Lookup lhash2 with INADDR_ANY */
+
+	hash2 = ipv4_portaddr_hash(net, htonl(INADDR_ANY), hnum);
+	ilb2 = inet_lhash2_bucket(hashinfo, hash2);
+	if (ilb2->count > ilb->count)
+		goto port_lookup;
+
+	result = inet_lhash2_lookup(net, ilb2, skb, doff,
+				    saddr, sport, daddr, hnum,
+				    dif, sdif);
+	goto done;
+
+port_lookup:
 	sk_nulls_for_each_rcu(sk, node, &ilb->nulls_head) {
 		score = compute_score(sk, net, hnum, daddr,
 				      dif, sdif, exact_dif);
