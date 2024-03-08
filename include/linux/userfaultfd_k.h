@@ -28,14 +28,21 @@
 #define UFFD_SHARED_FCNTL_FLAGS (O_CLOEXEC | O_NONBLOCK)
 #define UFFD_FLAGS_SET (EFD_SHARED_FCNTL_FLAGS)
 
+static_assert(UFFDIO_ZEROPAGE_MODE_MMAP_TRYLOCK == UFFDIO_COPY_MODE_MMAP_TRYLOCK);
+#define UFFDIO_MODE_MMAP_TRYLOCK UFFDIO_COPY_MODE_MMAP_TRYLOCK
+
+extern int sysctl_unprivileged_userfaultfd;
+
 extern int handle_userfault(struct vm_fault *vmf, unsigned long reason);
 
 extern ssize_t mcopy_atomic(struct mm_struct *dst_mm, unsigned long dst_start,
 			    unsigned long src_start, unsigned long len,
 			    bool *mmap_changing, __u64 mode);
 extern ssize_t mfill_zeropage(struct mm_struct *dst_mm,
-			      unsigned long dst_start,
-			      unsigned long len);
+			      unsigned long dst_start, unsigned long len,
+			      bool *mmap_changing, __u64 mode);
+extern ssize_t mcopy_continue(struct mm_struct *dst_mm, unsigned long dst_start,
+			      unsigned long len, bool *mmap_changing);
 
 /* mm helpers */
 static inline bool is_mergeable_vm_userfaultfd_ctx(struct vm_area_struct *vma,
