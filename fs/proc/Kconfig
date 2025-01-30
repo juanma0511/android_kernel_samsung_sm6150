@@ -121,3 +121,10 @@ config PROC_TRIGGER_SQLITE_BUG
 	bool "Trigger bug for SQLite debugging"
 	depends on PROC_FS
 	default y if !SAMSUNG_PRODUCT_SHIP
+
+config BOOTLOADER_ARGUMENTS_SPOOF
+	bool "Spoof Bootloader arguments"
+	depends on PROC_FS
+	default n
+	help
+	Makes the device think that it booted from a different bootloader. Use it only on Samsung official firmwares.
