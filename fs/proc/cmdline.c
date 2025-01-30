@@ -4,9 +4,18 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
+#ifdef CONFIG_BOOTLOADER_ARGUMENTS_SPOOF
+#include <asm/setup.h>
+static char new_command_line[COMMAND_LINE_SIZE];
+#endif
+
 static int cmdline_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "%s\n", saved_command_line);
+#ifdef CONFIG_BOOTLOADER_ARGUMENTS_SPOOF
+        seq_printf(m, "%s\n", new_command_line);
+#else
+        seq_printf(m, "%s\n", saved_command_line);
+#endif
 	return 0;
 }
 
@@ -54,6 +63,10 @@ static const struct file_operations cmdline_proc_fops = {
 static int __init proc_cmdline_init(void)
 {
 	proc_create("cmdline", 0, NULL, &cmdline_proc_fops);
+#ifdef CONFIG_BOOTLOADER_ARGUMENTS_SPOOF
+        strcpy(new_command_line, saved_command_line);
+        patch_bootloader_arguments(new_command_line);
+#endif
 	return 0;
 }
 fs_initcall(proc_cmdline_init);
