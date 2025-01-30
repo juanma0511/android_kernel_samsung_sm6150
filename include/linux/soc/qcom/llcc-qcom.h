@@ -13,6 +13,38 @@
 #ifndef __LLCC_QCOM__
 #define __LLCC_QCOM__
 
+#define LLCC_CPUSS       1
+#define LLCC_VIDSC0      2
+#define LLCC_VIDSC1      3
+#define LLCC_ROTATOR     4
+#define LLCC_VOICE       5
+#define LLCC_AUDIO       6
+#define LLCC_MDMHPGRW    7
+#define LLCC_MDM         8
+#define LLCC_MDMHW       9
+#define LLCC_CMPT        10
+#define LLCC_GPUHTW      11
+#define LLCC_GPU         12
+#define LLCC_MMUHWT      13
+#define LLCC_SENSOR      14
+#define LLCC_CMPTDMA     15
+#define LLCC_DISP        16
+#define LLCC_VIDFW       17
+#define LLCC_CAMFW       18
+#define LLCC_MSSTCM      19
+#define LLCC_MDMHPFX     20
+#define LLCC_MDMPNG      21
+#define LLCC_AUDHW       22
+#define LLCC_NPU         23
+#define LLCC_WLNHW       24
+#define LLCC_PIMEM       25
+#define LLCC_DISPVG      27
+#define LLCC_CVP         28
+#define LLCC_MODEMVPE    29
+#define LLCC_APTCM       30
+#define LLCC_WRTCH       31
+#define LLCC_CVPFW       32
+
 /**
  * llcc_slice_desc - Cache slice descriptor
  * @llcc_slice_id: llcc slice id
