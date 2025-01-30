@@ -1,14 +1,6 @@
-/* Copyright (c) 2012, 2015-2019, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2012, 2015-2021, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
@@ -132,7 +124,7 @@ static bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 
 	clk_forced_on = !(force_on_mask & val);
 
-	if (true == enable)
+	if (enable)
 		val |= force_on_mask;
 	else
 		val &= ~force_on_mask;
@@ -144,18 +136,32 @@ static bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 
 void vbif_lock(struct platform_device *parent_pdev)
 {
+#ifdef CONFIG_FB_MSM_MDSS
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	if (mdata && mdata->vbif_reg_lock)
+		mdata->vbif_reg_lock();
+#else
 	if (!parent_pdev)
 		return;
 
 	mdp_vbif_lock(parent_pdev, true);
+#endif
 }
 
 void vbif_unlock(struct platform_device *parent_pdev)
 {
+#ifdef CONFIG_FB_MSM_MDSS
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	if (mdata && mdata->vbif_reg_unlock)
+		mdata->vbif_reg_unlock();
+#else
 	if (!parent_pdev)
 		return;
 
 	mdp_vbif_lock(parent_pdev, false);
+#endif
 }
 
 void sde_mdp_halt_vbif_xin(struct sde_mdp_vbif_halt_params *params)
@@ -250,6 +256,7 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 	 */
 	switch (mdata->mdss_version) {
 	case SDE_MDP_HW_REV_540:
+	case SDE_MDP_HW_REV_320:
 		if (is_yuv) {
 			if (res <= (RES_1080p * 30))
 				ot_lim = 2;
@@ -262,7 +269,6 @@ u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd)
 		} else if (fmt->bpp == 4 && res <= (RES_WQXGA * 60)) {
 			ot_lim = 16;
 		}
-
 		break;
 	default:
 		if (res <= (RES_1080p * 30))
@@ -372,7 +378,6 @@ void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params)
 	SDEROT_EVTLOG(params->num, params->xin_id, ot_lim);
 exit:
 	vbif_unlock(mdata->parent_pdev);
-	return;
 }
 
 /*
@@ -983,5 +988,4 @@ void sde_rotator_base_destroy(struct sde_rot_data_type *mdata)
 	sde_mdp_destroy_dt_misc(pdev, mdata);
 	sde_rot_iounmap(&mdata->vbif_nrt_io);
 	sde_rot_iounmap(&mdata->sde_io);
-	devm_kfree(&pdev->dev, mdata);
 }
