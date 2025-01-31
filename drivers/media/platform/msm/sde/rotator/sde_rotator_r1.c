@@ -1,6 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -138,7 +146,8 @@ static struct sde_mdp_hw_resource *sde_rotator_hw_alloc(
 	int pipe_ndx, offset = ctl_id;
 	int ret = 0;
 
-	mdp_hw = kzalloc(sizeof(struct sde_mdp_hw_resource), GFP_KERNEL);
+	mdp_hw = devm_kzalloc(&mgr->pdev->dev,
+			sizeof(struct sde_mdp_hw_resource), GFP_KERNEL);
 	if (!mdp_hw)
 		return ERR_PTR(-ENOMEM);
 
@@ -217,7 +226,7 @@ error:
 			mdp_hw->ctl->ops.stop_fnc(mdp_hw->ctl, 0);
 		sde_mdp_ctl_free(mdp_hw->ctl);
 	}
-	kfree(mdp_hw);
+	devm_kfree(&mgr->pdev->dev, mdp_hw);
 
 	return ERR_PTR(ret);
 }
@@ -243,7 +252,7 @@ static void sde_rotator_hw_free(struct sde_rot_mgr *mgr,
 		sde_mdp_ctl_free(ctl);
 	}
 
-	kfree(mdp_hw);
+	devm_kfree(&mgr->pdev->dev, mdp_hw);
 }
 
 static struct sde_rot_hw_resource *sde_rotator_hw_alloc_ext(
@@ -597,7 +606,7 @@ enum {
 };
 
 struct intr_callback {
-	void (*func)(void *data);
+	void (*func)(void *);
 	void *arg;
 };
 
@@ -663,8 +672,10 @@ static void sde_rotator_hw_destroy(struct sde_rot_mgr *mgr)
 
 	hw_data = mgr->hw_data;
 	if (hw_data->irq_num >= 0)
-		free_irq(hw_data->irq_num, mdata);
+		devm_free_irq(&mgr->pdev->dev, hw_data->irq_num, mdata);
 	sde_rotator_hw_free(mgr, hw_data->mdp_hw);
+	devm_kfree(&mgr->pdev->dev, mgr->hw_data);
+	mgr->hw_data = NULL;
 }
 
 int sde_rotator_r1_init(struct sde_rot_mgr *mgr)
@@ -707,7 +718,8 @@ int sde_rotator_r1_init(struct sde_rot_mgr *mgr)
 	if (hw_data->irq_num < 0) {
 		SDEROT_ERR("fail to get rotator irq\n");
 	} else {
-		ret = request_threaded_irq(hw_data->irq_num,
+		ret = devm_request_threaded_irq(&mgr->pdev->dev,
+				hw_data->irq_num,
 				sde_irq_handler, NULL,
 				0, "sde_rotator_r1", mdata);
 		if (ret) {
@@ -732,9 +744,10 @@ int sde_rotator_r1_init(struct sde_rot_mgr *mgr)
 	return 0;
 error_hw_rev_init:
 	if (hw_data->irq_num >= 0)
-		free_irq(hw_data->irq_num, mdata);
+		devm_free_irq(&mgr->pdev->dev, hw_data->irq_num, mdata);
 	sde_rotator_hw_free(mgr, hw_data->mdp_hw);
 error_hw_alloc:
+	devm_kfree(&mgr->pdev->dev, mgr->hw_data);
 error_parse_dt:
 	return ret;
 }

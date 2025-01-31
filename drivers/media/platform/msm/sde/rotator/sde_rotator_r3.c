@@ -1,6 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
 
 #define pr_fmt(fmt)	"%s:%d: " fmt, __func__, __LINE__
@@ -737,7 +745,7 @@ skip_sbuf:
 			ts  = (ts - 1) & SDE_REGDMA_SWTS_MASK;
 			ctx = rot->rotCtx[q_id]
 				[ts & SDE_HW_ROT_REGDMA_SEG_MASK];
-		}
+		};
 
 done_isr_handle:
 		spin_unlock(&rot->rotisr_lock);
@@ -909,11 +917,13 @@ static int sde_hw_rotator_irq_setup(struct sde_hw_rotator *rot)
 		SDEROT_ERR("fail to get rot irq, fallback to poll %d\n", rc);
 	} else {
 		if (rot->mode == ROT_REGDMA_OFF)
-			rc = request_threaded_irq(rot->irq_num,
+			rc = devm_request_threaded_irq(&rot->pdev->dev,
+					rot->irq_num,
 					sde_hw_rotator_rotirq_handler,
 					NULL, 0, "sde_rotator_r3", rot);
 		else
-			rc = request_threaded_irq(rot->irq_num,
+			rc = devm_request_threaded_irq(&rot->pdev->dev,
+					rot->irq_num,
 					sde_hw_rotator_regdmairq_handler,
 					NULL, 0, "sde_rotator_r3", rot);
 		if (rc) {
@@ -935,7 +945,6 @@ static int sde_hw_rotator_irq_setup(struct sde_hw_rotator *rot)
 static int sde_hw_rotator_enable_irq(struct sde_hw_rotator *rot)
 {
 	int ret = 0;
-
 	SDEROT_DBG("irq_num:%d enabled:%d\n", rot->irq_num,
 		atomic_read(&rot->irq_enabled));
 
@@ -2673,12 +2682,14 @@ static void sde_hw_rotator_destroy(struct sde_rot_mgr *mgr)
 
 	rot = mgr->hw_data;
 	if (rot->irq_num >= 0)
-		free_irq(rot->irq_num, mdata);
+		devm_free_irq(&mgr->pdev->dev, rot->irq_num, mdata);
 
 	if (!test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map) &&
 			rot->mode == ROT_REGDMA_ON)
 		sde_hw_rotator_swts_destroy(rot);
 
+	devm_kfree(&mgr->pdev->dev, mgr->hw_data);
+	mgr->hw_data = NULL;
 }
 
 /*
@@ -2704,7 +2715,7 @@ static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 	 * Allocate rotator resource info. Each allocation is per
 	 * HW priority queue
 	 */
-	resinfo = kzalloc(sizeof(*resinfo), GFP_KERNEL);
+	resinfo = devm_kzalloc(&mgr->pdev->dev, sizeof(*resinfo), GFP_KERNEL);
 	if (!resinfo) {
 		SDEROT_ERR("Failed allocation HW rotator resource info\n");
 		return NULL;
@@ -2722,7 +2733,7 @@ static struct sde_rot_hw_resource *sde_hw_rotator_alloc_ext(
 		resinfo->hw.max_active = SDE_HW_ROT_REGDMA_TOTAL_CTX - 1;
 
 		if (!test_bit(SDE_CAPS_HW_TIMESTAMP, mdata->sde_caps_map) &&
-				!resinfo->rot->swts_buf.mapped)
+				resinfo->rot->swts_buf.mapped == false)
 			sde_hw_rotator_swts_create(resinfo->rot);
 	}
 
@@ -2756,7 +2767,7 @@ static void sde_hw_rotator_free_ext(struct sde_rot_mgr *mgr,
 
 	sde_hw_rotator_disable_irq(resinfo->rot);
 
-	kfree(resinfo);
+	devm_kfree(&mgr->pdev->dev, resinfo);
 }
 
 /*
@@ -2779,7 +2790,7 @@ static struct sde_hw_rotator_context *sde_hw_rotator_alloc_rotctx(
 	struct sde_hw_rotator_context *ctx;
 
 	/* Allocate rotator context */
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	ctx = devm_kzalloc(&rot->pdev->dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx) {
 		SDEROT_ERR("Failed allocation HW rotator context\n");
 		return NULL;
@@ -2842,7 +2853,7 @@ static void sde_hw_rotator_free_rotctx(struct sde_hw_rotator *rot,
 	/* Clear rotator context from lookup purpose */
 	sde_hw_rotator_clr_ctx(ctx);
 
-	kfree(ctx);
+	devm_kfree(&rot->pdev->dev, ctx);
 }
 
 /*
@@ -3798,7 +3809,7 @@ static int sde_hw_rotator_get_downscale_caps(struct sde_rot_mgr *mgr,
 
 	if (rot->downscale_caps) {
 		if (caps)
-			rc = scnprintf(caps, len, "%s", rot->downscale_caps);
+			rc = snprintf(caps, len, "%s", rot->downscale_caps);
 		else
 			rc = strlen(rot->downscale_caps);
 	}
@@ -4023,6 +4034,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mdata->sde_rot_hw = rot;
 	return 0;
 error_hw_rev_init:
+	devm_kfree(&mgr->pdev->dev, mgr->hw_data);
 error_parse_dt:
 	return ret;
 }
