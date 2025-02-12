@@ -47,9 +47,9 @@ static void patch_bootloader_arguments(char *cmd)
 	patch_flag(cmd, "androidboot.veritymode=", "enforcing");
 	patch_flag(cmd, "androidboot.vbmeta.device_state=", "locked");
 	patch_flag(cmd, "androidboot.warranty_bit=", "0");
-        patch_flag(cmd, "androidboot.em.model=", "SM-S9210 ");
-	patch_flag(cmd, "androidboot.bootloader=", "S9210ZHS4AXK6");
-	patch_flag(cmd, "androidboot.product.model=", "SM-S9210 ");
+        patch_flag(cmd, "androidboot.em.model=", "SM-S931B ");
+	patch_flag(cmd, "androidboot.bootloader=", "S931BXXU1AYA1");
+	patch_flag(cmd, "androidboot.product.model=", "SM-S931B ");
 }
 #endif
 
