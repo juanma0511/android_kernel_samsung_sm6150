@@ -104,6 +104,19 @@ s32 bdev_check_bdi_valid(struct super_block *sb)
 }
 
 #if IS_BUILTIN(CONFIG_SDFAT_FS)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
+static inline void __sdfat_blk_flush_plug(void)
+{
+	blk_flush_plug(current->plug, false);
+}
+#else
+static inline void __sdfat_blk_flush_plug(void)
+{
+	blk_flush_plug(current);
+}
+#endif
+
 static void __bdev_readahead(struct super_block *sb, u64 secno, u64 num_secs)
 {
 	u32 sects_per_page = (PAGE_SIZE >> sb->s_blocksize_bits);
@@ -113,7 +126,7 @@ static void __bdev_readahead(struct super_block *sb, u64 secno, u64 num_secs)
 	blk_start_plug(&plug);
 	for (i = 0; i < num_secs; i++) {
 		if (i && !(i & (sects_per_page - 1)))
-			blk_flush_plug(current);
+			__sdfat_blk_flush_plug();
 		sb_breadahead(sb, (sector_t)(secno + i));
 	}
 	blk_finish_plug(&plug);
@@ -173,7 +186,9 @@ s32 bdev_mread(struct super_block *sb, u64 secno, struct buffer_head **bh, u64 n
 	if (!(fsi->prev_eio & SDFAT_EIO_READ)) {
 		fsi->prev_eio |= SDFAT_EIO_READ;
 		sdfat_log_msg(sb, KERN_ERR, "%s: No bh. I/O error.", __func__);
+#ifdef CONFIG_SDFAT_DEBUG
 		sdfat_debug_warn_on(1);
+#endif
 	}
 
 	return -EIO;
@@ -227,7 +242,9 @@ no_bh:
 	if (!(fsi->prev_eio & SDFAT_EIO_WRITE)) {
 		fsi->prev_eio |= SDFAT_EIO_WRITE;
 		sdfat_log_msg(sb, KERN_ERR, "%s: No bh. I/O error.", __func__);
+#ifdef CONFIG_SDFAT_DEBUG
 		sdfat_debug_warn_on(1);
+#endif
 	}
 
 	return -EIO;
