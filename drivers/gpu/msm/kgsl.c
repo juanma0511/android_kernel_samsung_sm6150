@@ -350,6 +350,14 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 		dma_buf_put(meta->dmabuf);
 		kfree(meta);
 	}
+
+	/*
+	 * Ion takes care of freeing the sg_table for us so
+	 * clear the sg table to ensure kgsl_sharedmem_free
+	 * doesn't try to free it again
+	 */
+	memdesc->sgt = NULL;
+	entry->priv_data = NULL;
 }
 #else
 static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
