@@ -175,10 +175,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ../files/*.zip
-          name: KernelSU A70 - Build ${{ github.run_number }}
+          name: KernelSU A70q
           tag_name: v${{ steps.kernel_info.outputs.version }}-${{ steps.kernel_info.outputs.date }}
           body: |
-            ## 🚀 KernelSU Kernel for Samsung Galaxy A70
+            ## 📲 KernelSU Kernel for Samsung Galaxy A70
             
             **Build Information:**
             - **Kernel Version:** ${{ steps.kernel_info.outputs.version }}
@@ -188,11 +188,11 @@ jobs:
             - **KernelSU:** backslashxx/master branch
             
             ### ✨ Features
-            - ✅ KernelSU integrated (backslashxx fork)
-            - ✅ Compiled with LineageOS Clang r416183b
-            - ✅ GCC ARM64/ARM32 cross-compilers
-            - ✅ Optimized for Galaxy A70
-            - ✅ Ready to flash with Lineage OS Recovery and TWRP
+            -  KernelSU integrated (backslashxx fork)
+            -  Compiled with Clang r416183b
+            -  GCC ARM64/ARM32 cross-compilers
+            -  Optimized for Galaxy A70
+            -  Ready to flash with Lineage OS Recovery and TWRP
             
             ### 📱 Supported Devices
             - Samsung Galaxy A70 (SM-A705F/FN/W/0/MN)
