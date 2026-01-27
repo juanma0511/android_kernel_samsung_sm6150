@@ -167,7 +167,7 @@ jobs:
         with:
           name: KernelSU-A70-${{ steps.kernel_info.outputs.date }}
           path: |
-            ../files/*.zip
+            ./files/*.zip
           retention-days: 30
 
       - name: Create GitHub Release
