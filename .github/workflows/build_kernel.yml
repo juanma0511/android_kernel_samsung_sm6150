@@ -63,7 +63,7 @@ jobs:
           files: /home/runner/work/android_kernel_samsung_sm6150/files/a70*
           name: KernelSU A70 - ${{ steps.kernel_version.outputs.version }} (${{ steps.kernel_version.outputs.date }})
           body: |
-          ** KernelSU Kernel for Samsung Galaxy A70
+          **KernelSU Kernel for Samsung Galaxy A70**
           
           **Kernel Version:** ${{ steps.kernel_version.outputs.version }}
           **Build Date:** ${{ steps.kernel_version.outputs.date }}
