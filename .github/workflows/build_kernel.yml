@@ -192,10 +192,10 @@ jobs:
             - ✅ Compiled with LineageOS Clang r416183b
             - ✅ GCC ARM64/ARM32 cross-compilers
             - ✅ Optimized for Galaxy A70
-            - ✅ Ready to flash with TWRP/OrangeFox
+            - ✅ Ready to flash with Lineage OS Recovery and TWRP
             
             ### 📱 Supported Devices
-            - Samsung Galaxy A70 (SM-A705F/FN/W/0)
+            - Samsung Galaxy A70 (SM-A705F/FN/W/0/MN)
             
             ### 📦 Installation
             1. Download `KernelSU-A70-*.zip`
