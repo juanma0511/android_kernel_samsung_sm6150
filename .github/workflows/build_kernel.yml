@@ -1,93 +1,215 @@
-name: Build Kernel for A70q
+name: Build Kernel
 
 on:
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create GitHub Release'
+        required: false
+        type: boolean
+        default: true
   pull_request:
   push:
     branches:
       - 'main'
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
 
 jobs:
   build_kernel:
     runs-on: ubuntu-latest
 
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [a70q]
-
     steps:
-      - name: Checkout repo
+      - name: Checkout Kernel Source
         uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
 
-      - name: Set up environment
+      - name: Set up Build Environment
         run: |
           sudo apt update
           DEBIAN_FRONTEND=noninteractive sudo apt install -yq \
-            curl zip unzip \
-            git libssh-dev rsync libelf-dev dwarves libssl-dev \
-            linux-modules-extra-$(uname -r) build-essential
+            curl zip unzip git libssh-dev rsync libelf-dev \
+            dwarves libssl-dev build-essential bc bison flex \
+            libncurses-dev make libc6-dev libstdc++6 \
+            gcc g++ python3 ccache
 
-      - name: Fetch ToolChain
+      - name: Setup Toolchains Cache
+        uses: actions/cache@v3
+        id: toolchain-cache
+        with:
+          path: |
+            ../Prebuilts
+          key: toolchains-lineageos-${{ runner.os }}-v1
+
+      - name: Fetch Toolchains
+        if: steps.toolchain-cache.outputs.cache-hit != 'true'
         run: |
           export KERNEL_DIR="$(pwd)"
           mkdir -p "$KERNEL_DIR/../Prebuilts"
-          git clone https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b $KERNEL_DIR/../Prebuilts/los-clang
-          git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $KERNEL_DIR/../Prebuilts/gcc64
-          git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 $KERNEL_DIR/../Prebuilts/gcc32
-          git clone https://android.googlesource.com/platform/prebuilts/gas/linux-x86 $KERNEL_DIR/../Prebuilts/gas/linux-x86
+          
+          echo "Cloning LineageOS Clang..."
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b $KERNEL_DIR/../Prebuilts/los-clang
+          
+          echo "Cloning GCC ARM64..."
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $KERNEL_DIR/../Prebuilts/gcc64
+          
+          echo "Cloning GCC ARM32..."
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 $KERNEL_DIR/../Prebuilts/gcc32
+          
+          echo "Cloning GAS..."
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gas/linux-x86 $KERNEL_DIR/../Prebuilts/gas
+          
+          echo "Cloning Build Tools..."
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/build-tools $KERNEL_DIR/../Prebuilts/build-tools
-
-          cd "$KERNEL_DIR"
 
       - name: Fetch AnyKernel3
         run: |
           export KERNEL_DIR="$(pwd)"
-          git clone --branch master https://github.com/juanma0511/AnyKernel3-A70-KSU_Base.git $KERNEL_DIR/../AnyKernel3
-          mkdir $KERNEL_DIR/../files
+          git clone --depth=1 https://github.com/juanma0511/AnyKernel3-A70-KSU_Base.git $KERNEL_DIR/../AnyKernel3
+          mkdir -p $KERNEL_DIR/../files
 
-      - name: Setup xxKSU
+      - name: Setup KernelSU
         run: |
           curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s master
 
-      - name: Build Kernel With KSU
+      - name: Get Kernel Info
+        id: kernel_info
+        run: |
+          echo "date=$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          KERNEL_VERSION=$(make kernelversion 2>/dev/null || echo "4.14.190")
+          echo "version=$KERNEL_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Kernel
         run: |
           export KERNEL_DIR="$(pwd)"
-          source ./build_kernel.sh ${{ matrix.target }}
-          cp -r $KERNEL_DIR/../AnyKernel3/* $KERNEL_DIR/../files
+          export ARCH=arm64
+          export SUBARCH=arm64
+          
+          # Setup toolchain paths
+          export CLANG_PATH="$KERNEL_DIR/../Prebuilts/los-clang"
+          export PATH="$CLANG_PATH/bin:$KERNEL_DIR/../Prebuilts/gas/linux-x86:$PATH"
+          export LD_LIBRARY_PATH="$CLANG_PATH/lib64:$LD_LIBRARY_PATH"
+          
+          export CROSS_COMPILE="$KERNEL_DIR/../Prebuilts/gcc64/bin/aarch64-linux-android-"
+          export CROSS_COMPILE_ARM32="$KERNEL_DIR/../Prebuilts/gcc32/bin/arm-linux-androideabi-"
+          export CROSS_COMPILE_COMPAT="$CROSS_COMPILE_ARM32"
+          
+          export CC="$CLANG_PATH/bin/clang"
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export LLVM=1
+          export LLVM_IAS=1
+          
+          export KBUILD_BUILD_USER=juanma0511
+          export KBUILD_BUILD_HOST=github-actions
+          
+          # Make output directory
+          mkdir -p out
+          
+          echo "=================================="
+          echo "Building Kernel for Galaxy A70"
+          echo "=================================="
+          
+          # Generate defconfig
+          make O=out ARCH=arm64 a70q_oneui_defconfig
+          
+          # Build kernel
+          make -j$(nproc --all) \
+            O=out \
+            ARCH=arm64 \
+            CC=clang \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=$CROSS_COMPILE \
+            CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32 \
+            LLVM=1 \
+            LLVM_IAS=1
+          
+          echo "=================================="
+          echo "Build completed!"
+          echo "=================================="
 
-      - name: Publish to GitHub
-        id: release
+      - name: Prepare AnyKernel3 Package
+        run: |
+          export KERNEL_DIR="$(pwd)"
+          
+          # Copy kernel image to AnyKernel3
+          if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
+            echo "✅ Found Image.gz-dtb"
+            cp out/arch/arm64/boot/Image.gz-dtb $KERNEL_DIR/../AnyKernel3/
+          elif [ -f "out/arch/arm64/boot/Image.gz" ]; then
+            echo "✅ Found Image.gz"
+            cp out/arch/arm64/boot/Image.gz $KERNEL_DIR/../AnyKernel3/
+          elif [ -f "out/arch/arm64/boot/Image" ]; then
+            echo "✅ Found Image"
+            cp out/arch/arm64/boot/Image $KERNEL_DIR/../AnyKernel3/
+          else
+            echo "❌ No kernel image found!"
+            exit 1
+          fi
+          
+          # Copy dtb if exists
+          if [ -f "out/arch/arm64/boot/dtb.img" ]; then
+            cp out/arch/arm64/boot/dtb.img $KERNEL_DIR/../AnyKernel3/
+          fi
+          
+          # Create flashable ZIP
+          cd $KERNEL_DIR/../AnyKernel3
+          zip -r9 $KERNEL_DIR/../files/KernelSU-A70-${{ steps.kernel_info.outputs.version }}-${{ steps.kernel_info.outputs.date }}.zip \
+            * -x .git README.md *placeholder .gitignore .gitattributes
+          
+          echo "✅ Flashable ZIP created successfully"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: KernelSU-A70-${{ steps.kernel_info.outputs.date }}
+          path: |
+            ../files/*.zip
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.event.inputs.create_release == 'true' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/lineage-22.2'
         uses: softprops/action-gh-release@v2
         with:
-          files: /home/runner/work/android_kernel_samsung_sm6150/files/a70*
-          name: KernelSU A70 - ${{ steps.kernel_version.outputs.version }} (${{ steps.kernel_version.outputs.date }})
+          files: ../files/*.zip
+          name: KernelSU A70 - Build ${{ github.run_number }}
+          tag_name: v${{ steps.kernel_info.outputs.version }}-${{ steps.kernel_info.outputs.date }}
           body: |
-          **KernelSU Kernel for Samsung Galaxy A70**
-          
-          **Kernel Version:** ${{ steps.kernel_version.outputs.version }}
-          **Build Date:** ${{ steps.kernel_version.outputs.date }}
-          **Commit:** ${{ steps.kernel_version.outputs.short_sha }}
-          
-          **Features**
-          - KernelSU with Metamodules support
-          - Based on kernel ${{ steps.kernel_version.outputs.version }}
-          - Optimized with Clang-r416183b
-          
-          **Installation**
-          1. Download the KernelSU-A70-*.zip file
-          2. Boot to recovery (LineageOS)
-          3. Flash the ZIP (Sideload)
-          4. Reboot
-          
-          **Supported Devices**
-          - Galaxy A70q (SM-A705F/FN/W/MN)
-          
-          **⚠️ Warning:** Make a backup before flashing!
-        files: |
-          KernelSU-A70-*.zip
-          kernel_output/*
-        draft: false
-        prerelease: false
+            ## 🚀 KernelSU Kernel for Samsung Galaxy A70
+            
+            **Build Information:**
+            - **Kernel Version:** ${{ steps.kernel_info.outputs.version }}
+            - **Build Date:** ${{ steps.kernel_info.outputs.date }}
+            - **Commit:** ${{ steps.kernel_info.outputs.short_sha }}
+            - **Clang Version:** Clang-r416183b (LineageOS)
+            - **KernelSU:** backslashxx/master branch
+            
+            ### ✨ Features
+            - ✅ KernelSU integrated (backslashxx fork)
+            - ✅ Compiled with LineageOS Clang r416183b
+            - ✅ GCC ARM64/ARM32 cross-compilers
+            - ✅ Optimized for Galaxy A70
+            - ✅ Ready to flash with TWRP/OrangeFox
+            
+            ### 📱 Supported Devices
+            - Samsung Galaxy A70 (SM-A705F/FN/W/0)
+            
+            ### 📦 Installation
+            1. Download `KernelSU-A70-*.zip`
+            2. Boot into recovery (Lineage OS)
+            3. Flash the ZIP file (Adb Sideload)
+            4. Reboot and install KernelSU Manager
+            
+            ### ⚠️ Important Notes
+            - Always make a backup before flashing
+            - Install KernelSU Manager from [official releases](https://github.com/tiann/KernelSU/releases)
+            - Report issues on [GitHub Issues](https://github.com/juanma0511/android_kernel_samsung_sm6150/issues)
+            
+            ---
+            
+            💚 *Built with love by GitHub Actions*
         env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
