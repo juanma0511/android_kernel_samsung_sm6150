@@ -17,6 +17,7 @@
 
 #include <linux/linkage.h>
 
+#include <asm/alternative.h>
 #include <asm/asm-offsets.h>
 #include <asm/assembler.h>
 #include <asm/fpsimdmacros.h>
@@ -64,26 +65,35 @@ ENTRY(__guest_enter)
 	// x0: vcpu
 	// x1: host context
 	// x2-x17: clobbered by macros
-	// x29: guest context
+	// x18: guest context
 
 	// Store the host regs
 	save_callee_saved_regs x1
 
-	add	x29, x0, #VCPU_CONTEXT
+	// Now the host state is stored if we have a pending RAS SError it must
+	// affect the host. If any asynchronous exception is pending we defer
+	// the guest entry.
+	mrs	x1, isr_el1
+	cbz	x1,  1f
+	mov	x0, #ARM_EXCEPTION_IRQ
+	ret
+
+1:
+	add	x18, x0, #VCPU_CONTEXT
 
 	// Restore guest regs x0-x17
-	ldp	x0, x1,   [x29, #CPU_XREG_OFFSET(0)]
-	ldp	x2, x3,   [x29, #CPU_XREG_OFFSET(2)]
-	ldp	x4, x5,   [x29, #CPU_XREG_OFFSET(4)]
-	ldp	x6, x7,   [x29, #CPU_XREG_OFFSET(6)]
-	ldp	x8, x9,   [x29, #CPU_XREG_OFFSET(8)]
-	ldp	x10, x11, [x29, #CPU_XREG_OFFSET(10)]
-	ldp	x12, x13, [x29, #CPU_XREG_OFFSET(12)]
-	ldp	x14, x15, [x29, #CPU_XREG_OFFSET(14)]
-	ldp	x16, x17, [x29, #CPU_XREG_OFFSET(16)]
+	ldp	x0, x1,   [x18, #CPU_XREG_OFFSET(0)]
+	ldp	x2, x3,   [x18, #CPU_XREG_OFFSET(2)]
+	ldp	x4, x5,   [x18, #CPU_XREG_OFFSET(4)]
+	ldp	x6, x7,   [x18, #CPU_XREG_OFFSET(6)]
+	ldp	x8, x9,   [x18, #CPU_XREG_OFFSET(8)]
+	ldp	x10, x11, [x18, #CPU_XREG_OFFSET(10)]
+	ldp	x12, x13, [x18, #CPU_XREG_OFFSET(12)]
+	ldp	x14, x15, [x18, #CPU_XREG_OFFSET(14)]
+	ldp	x16, x17, [x18, #CPU_XREG_OFFSET(16)]
 
 	// Restore guest regs x18-x29, lr
-	restore_callee_saved_regs x29
+	restore_callee_saved_regs x18
 
 	// Do not touch any register after this!
 	eret
@@ -138,18 +148,22 @@ ENTRY(__guest_exit)
 	// This is our single instruction exception window. A pending
 	// SError is guaranteed to occur at the earliest when we unmask
 	// it, and at the latest just after the ISB.
-	.global	abort_guest_exit_start
 abort_guest_exit_start:
 
 	isb
 
-	.global	abort_guest_exit_end
 abort_guest_exit_end:
+	msr	daifset, #4	// Mask aborts
+	ret
 
-	// If the exception took place, restore the EL1 exception
-	// context so that we can report some information.
-	// Merge the exception code with the SError pending bit.
-	tbz	x0, #ARM_EXIT_WITH_SERROR_BIT, 1f
+	_kvm_extable	abort_guest_exit_start, 9997f
+	_kvm_extable	abort_guest_exit_end, 9997f
+9997:
+	msr	daifset, #4	// Mask aborts
+	mov	x0, #(1 << ARM_EXIT_WITH_SERROR_BIT)
+
+	// restore the EL1 exception context so that we can report some
+	// information. Merge the exception code with the SError pending bit.
 	msr	elr_el2, x2
 	msr	esr_el2, x3
 	msr	spsr_el2, x4

@@ -279,7 +279,7 @@ static int binder_update_page_range(struct binder_alloc *alloc, int allocate,
 		/* vm_insert_page does not seem to increment the refcount */
 	}
 	if (mm) {
-		up_read(&mm->mmap_sem);
+		up_write(&mm->mmap_sem);
 		mmput_async(mm);
 	}
 	return 0;
@@ -312,7 +312,7 @@ err_page_ptr_cleared:
 	}
 err_no_vma:
 	if (mm) {
-		up_read(&mm->mmap_sem);
+		up_write(&mm->mmap_sem);
 		mmput_async(mm);
 	}
 	return vma ? -ENOMEM : -ESRCH;
@@ -1289,6 +1289,12 @@ void binder_alloc_copy_from_buffer(struct binder_alloc *alloc,
 {
 	binder_alloc_do_buffer_copy(alloc, false, buffer, buffer_offset,
 				    dest, bytes);
+}
+
+void binder_alloc_shrinker_exit(void)
+{
+	unregister_shrinker(&binder_shrinker);
+	list_lru_destroy(&binder_alloc_lru);
 }
 
 void binder_alloc_shrinker_exit(void)

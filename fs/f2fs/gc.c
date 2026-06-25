@@ -1080,8 +1080,13 @@ next_step:
 
 		if (phase == 3) {
 			inode = f2fs_iget(sb, dni.ino);
+<<<<<<< HEAD
 			if (IS_ERR(inode) || is_bad_inode(inode)) {
 				set_sbi_flag(sbi, SBI_NEED_FSCK);
+				continue;
+			}
+			if (special_file(inode->i_mode)) {
+				iput(inode);
 				continue;
 			}
 
