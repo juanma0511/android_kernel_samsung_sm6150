@@ -358,7 +358,7 @@ static const struct xattr_handler kernfs_trusted_xattr_handler = {
 	.set = kernfs_xattr_set,
 };
 
-static int kernfs_security_xattr_set(const struct xattr_handler *handler,
+static int kernfs_security_xattr_handler_set(const struct xattr_handler *handler,
 				     struct dentry *unused, struct inode *inode,
 				     const char *suffix, const void *value,
 				     size_t size, int flags)
@@ -392,7 +392,7 @@ static int kernfs_security_xattr_set(const struct xattr_handler *handler,
 static const struct xattr_handler kernfs_security_xattr_handler = {
 	.prefix = XATTR_SECURITY_PREFIX,
 	.get = kernfs_xattr_get,
-	.set = kernfs_security_xattr_set,
+	.set = kernfs_security_xattr_handler_set,
 };
 
 const struct xattr_handler *kernfs_xattr_handlers[] = {

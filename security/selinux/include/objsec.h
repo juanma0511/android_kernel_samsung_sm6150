@@ -175,10 +175,10 @@ static inline struct msg_security_struct *selinux_msg_msg(
 	return msg_msg->security + selinux_blob_sizes.lbs_msg_msg;
 }
 
-static inline struct ipc_security_struct *selinux_ipc(
-						const struct kern_ipc_perm *ipc)
+static inline struct ipc_security_struct *selinux_ipc(const void *ipc)
 {
-	return ipc->security + selinux_blob_sizes.lbs_ipc;
+	const struct kern_ipc_perm *p = ipc;
+	return p->security + selinux_blob_sizes.lbs_ipc;
 }
 
 /*

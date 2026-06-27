@@ -376,4 +376,6 @@ extern int hashdist;		/* Distribute hashes across NUMA nodes? */
 #endif
 
 
+extern void __init report_meminit(void);
+
 #endif /* _LINUX_BOOTMEM_H */

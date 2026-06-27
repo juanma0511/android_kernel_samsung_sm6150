@@ -12,6 +12,7 @@
 #include <linux/memory.h>
 #include <linux/notifier.h>
 #include <linux/sched.h>
+#include <linux/mm.h>
 #include "internal.h"
 
 #ifdef CONFIG_DEBUG_MEMORY_INIT
@@ -137,6 +138,21 @@ static __init int set_mminit_loglevel(char *str)
 }
 early_param("mminit_loglevel", set_mminit_loglevel);
 #endif /* CONFIG_DEBUG_MEMORY_INIT */
+
+void __init report_meminit(void)
+{
+	const char *state;
+
+	if (IS_ENABLED(CONFIG_DEBUG_MEMORY_INIT))
+		state = "on";
+	else
+		state = "off";
+
+	pr_info("mem auto-init: stack:%s, heap alloc:%s, heap free:%s\n",
+		want_init_on_alloc(GFP_KERNEL) ? "on" : "off",
+		want_init_on_alloc(GFP_KERNEL) ? "on" : "off",
+		want_init_on_free() ? "on" : "off");
+}
 
 struct kobject *mm_kobj;
 EXPORT_SYMBOL_GPL(mm_kobj);

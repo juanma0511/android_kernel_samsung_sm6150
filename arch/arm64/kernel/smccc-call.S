@@ -50,3 +50,13 @@ ENDPROC(__arm_smccc_smc)
 ENTRY(__arm_smccc_hvc)
 	SMCCC	hvc
 ENDPROC(__arm_smccc_hvc)
+
+/*
+ * Stub for Spectre-BHB firmware mitigation patching callback.
+ * Without the full conduit detection infrastructure this is a no-op:
+ * the alternative nop is left unpatched and firmware-based BHB mitigation
+ * is simply not activated.
+ */
+ENTRY(arm64_update_smccc_conduit)
+	ret
+ENDPROC(arm64_update_smccc_conduit)

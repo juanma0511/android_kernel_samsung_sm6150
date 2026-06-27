@@ -42,6 +42,18 @@ struct ctl_table_header;
 struct net_generic;
 struct sock;
 struct netns_ipvs;
+struct bpf_prog_array;
+
+/* BPF per-netns state — minimal subset needed for SK_LOOKUP */
+#define MAX_NETNS_BPF_ATTACH_TYPE 1
+enum netns_bpf_attach_type {
+	NETNS_BPF_SK_LOOKUP = 0,
+};
+
+struct netns_bpf {
+	struct bpf_prog_array __rcu *run_array[MAX_NETNS_BPF_ATTACH_TYPE];
+	struct list_head		 links[MAX_NETNS_BPF_ATTACH_TYPE];
+};
 
 
 #define NETDEV_HASHBITS    8
@@ -152,6 +164,7 @@ struct net {
 #endif
 	struct sock		*diag_nlsk;
 	atomic_t		fnhe_genid;
+	struct netns_bpf	bpf;
 } __randomize_layout;
 
 #include <linux/seq_file_net.h>

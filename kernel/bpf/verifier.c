@@ -5209,12 +5209,6 @@ skip_full_check:
 		ret = -ENOSPC;
 	}
 
-	if (ret == 0)
-		ret = fixup_call_args(env);
-
-	env->verification_time = ktime_get_ns() - start_time;
-	print_verification_stats(env);
-
 	// ANDROID: Do not fail to load if log buffer passed in from userspace
 	// is too small. The bpf log logic is refactored in the 6.4 kernel
 	// acknowledging the shortcomings of this approch. Instead of backporting

@@ -3741,7 +3741,7 @@ int selinux_kernfs_init_security(struct kernfs_node *kn_dir,
 	int rc;
 	char *context;
 
-	rc = kernfs_xattr_get(kn_dir, XATTR_SELINUX_SUFFIX, NULL, 0);
+	rc = kernfs_security_xattr_get(kn_dir, XATTR_SELINUX_SUFFIX, NULL, 0);
 	if (rc == -ENODATA)
 		return 0;
 	else if (rc < 0)
@@ -3752,7 +3752,7 @@ int selinux_kernfs_init_security(struct kernfs_node *kn_dir,
 	if (!context)
 		return -ENOMEM;
 
-	rc = kernfs_xattr_get(kn_dir, XATTR_SELINUX_SUFFIX, context,
+	rc = kernfs_security_xattr_get(kn_dir, XATTR_SELINUX_SUFFIX, context,
 				       clen);
 	if (rc < 0) {
 		kfree(context);
@@ -3786,7 +3786,7 @@ int selinux_kernfs_init_security(struct kernfs_node *kn_dir,
 	if (rc)
 		return rc;
 
-	rc = kernfs_xattr_set(kn, XATTR_SELINUX_SUFFIX, context, clen,
+	rc = kernfs_security_xattr_set(kn, XATTR_SELINUX_SUFFIX, context, clen,
 				       XATTR_CREATE);
 	kfree(context);
 	return rc;
@@ -6908,7 +6908,6 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init_kdp = {
 
 	LSM_HOOK_INIT(inode_free_security, selinux_inode_free_security),
 	LSM_HOOK_INIT(inode_init_security, selinux_inode_init_security),
-	LSM_HOOK_INIT(inode_init_security_anon, selinux_inode_init_security_anon),
 	LSM_HOOK_INIT(inode_create, selinux_inode_create),
 	LSM_HOOK_INIT(inode_link, selinux_inode_link),
 	LSM_HOOK_INIT(inode_unlink, selinux_inode_unlink),
@@ -6934,7 +6933,6 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init_kdp = {
 	LSM_HOOK_INIT(inode_copy_up, selinux_inode_copy_up),
 	LSM_HOOK_INIT(inode_copy_up_xattr, selinux_inode_copy_up_xattr),
 
-	LSM_HOOK_INIT(kernfs_init_security, selinux_kernfs_init_security),
 
 	LSM_HOOK_INIT(file_permission, selinux_file_permission),
 	LSM_HOOK_INIT(file_alloc_security, selinux_file_alloc_security),

@@ -51,6 +51,14 @@
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
 
+#ifndef sched_set_fifo
+static inline void sched_set_fifo(struct task_struct *p)
+{
+	struct sched_param sp = { .sched_priority = MAX_RT_PRIO / 2 };
+	sched_setscheduler_nocheck(p, SCHED_FIFO, &sp);
+}
+#endif
+
 #ifndef arch_mmap_check
 #define arch_mmap_check(addr, len, flags)	(0)
 #endif
@@ -351,13 +359,6 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 		kfree(meta);
 	}
 
-	/*
-	 * Ion takes care of freeing the sg_table for us so
-	 * clear the sg table to ensure kgsl_sharedmem_free
-	 * doesn't try to free it again
-	 */
-	memdesc->sgt = NULL;
-	entry->priv_data = NULL;
 }
 #else
 static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)

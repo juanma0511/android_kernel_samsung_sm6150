@@ -662,7 +662,6 @@ static const struct attribute *_attr_list[] = {
 	&adreno_attr_ifpc_count.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
 	&adreno_attr_acd.attr.attr,
-	&adreno_attr_perfcounter.attr.attr,
 	&adreno_attr_acd_data_index.attr.attr,
 	&adreno_attr_acd_version.attr.attr,
 	&adreno_attr_acd_stride.attr.attr,

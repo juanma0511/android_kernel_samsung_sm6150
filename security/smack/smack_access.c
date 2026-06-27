@@ -628,7 +628,7 @@ DEFINE_MUTEX(smack_onlycap_lock);
  *
  * Returns true if the task is allowed to be privileged, false if it's not.
  */
-bool smack_privileged(int cap)
+bool smack_privileged_cred(int cap, const struct cred *cred)
 {
 	struct task_smack *tsp = smack_cred(cred);
 	struct smack_known *skp = tsp->smk_task;
@@ -641,8 +641,7 @@ bool smack_privileged(int cap)
 	if (unlikely(current->flags & PF_KTHREAD))
 		return true;
 
-	rc = cap_capable(current_cred(), &init_user_ns, cap,
-				SECURITY_CAP_AUDIT);
+	rc = cap_capable(cred, &init_user_ns, cap, SECURITY_CAP_AUDIT);
 	if (rc)
 		return false;
 
@@ -661,4 +660,9 @@ bool smack_privileged(int cap)
 	rcu_read_unlock();
 
 	return false;
+}
+
+bool smack_privileged(int cap)
+{
+	return smack_privileged_cred(cap, current_cred());
 }

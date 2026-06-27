@@ -42,6 +42,8 @@
 #include "netport.h"
 #include "objsec.h"
 
+extern int selinux_enabled;
+
 #define SEL_NETPORT_HASH_SIZE       256
 #define SEL_NETPORT_HASH_BKT_LIMIT   16
 

@@ -42,6 +42,8 @@
 #include "objsec.h"
 #include "conditional.h"
 
+extern int selinux_enabled;
+
 enum sel_inos {
 	SEL_ROOT_INO = 2,
 	SEL_LOAD,	/* load policy */
@@ -186,7 +188,7 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 				      NULL);
 		if (length)
 			goto out;
-		audit_log(audit_context(), GFP_KERNEL, AUDIT_MAC_STATUS,
+		audit_log(current->audit_context, GFP_KERNEL, AUDIT_MAC_STATUS,
 			"enforcing=%d old_enforcing=%d auid=%u ses=%u"
 			" enabled=1 old-enabled=1 lsm=selinux res=1",
 			new_value, old_value,
@@ -330,7 +332,7 @@ static ssize_t sel_write_disable(struct file *file, const char __user *buf,
 		length = selinux_disable(fsi->state);
 		if (length)
 			goto out;
-		audit_log(audit_context(), GFP_KERNEL, AUDIT_MAC_STATUS,
+		audit_log(current->audit_context, GFP_KERNEL, AUDIT_MAC_STATUS,
 			"enforcing=%d old_enforcing=%d auid=%u ses=%u"
 			" enabled=0 old-enabled=1 lsm=selinux res=1",
 			enforcing, enforcing,

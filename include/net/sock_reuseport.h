@@ -12,9 +12,17 @@ struct sock_reuseport {
 
 	u16			max_socks;	/* length of socks */
 	u16			num_socks;	/* elements in socks */
+	/* compat fields from 5.x backport */
+	u32			reuseport_id;
+	bool			bind_inany;
 	struct bpf_prog __rcu	*prog;		/* optional BPF sock selector */
 	struct sock		*socks[0];	/* array of sock pointers */
 };
+
+static inline bool reuseport_has_conns(struct sock *sk, bool set)
+{
+	return false;
+}
 
 extern int reuseport_alloc(struct sock *sk);
 extern int reuseport_add_sock(struct sock *sk, struct sock *sk2);

@@ -29,6 +29,8 @@
 #include "objsec.h"
 #include "netif.h"
 
+extern int selinux_enabled;
+
 #define SEL_NETIF_HASH_SIZE	64
 #define SEL_NETIF_HASH_MAX	1024
 

@@ -50,6 +50,18 @@ static struct lsm_blob_sizes blob_sizes __lsm_ro_after_init;
 static __initdata char chosen_lsm[SECURITY_NAME_MAX + 1] =
 	CONFIG_DEFAULT_SECURITY;
 
+/* Missing LSM stacking infrastructure — defined here for 4.14 compatibility */
+static int lsm_enabled_true __initdata = 1;
+static struct lsm_info **ordered_lsms __initdata;
+static struct lsm_info *exclusive __initdata;
+static char *chosen_major_lsm __initdata;
+static char *chosen_lsm_order __initdata;
+static const char builtin_lsm_order[] __initconst = CONFIG_DEFAULT_SECURITY;
+#define LSM_COUNT		((__end_lsm_info) - (__start_lsm_info))
+#define init_debug(...)		do { } while (0)
+#define is_enabled(lsm)		((lsm)->enabled ? *((lsm)->enabled) : 0)
+#define set_enabled(lsm, val)	do { if ((lsm)->enabled) *((lsm)->enabled) = (val); } while (0)
+
 static void __init do_security_initcalls(void)
 {
 	initcall_t *call;
@@ -1691,7 +1703,7 @@ void security_msg_msg_free(struct msg_msg *msg)
 
 int security_msg_queue_alloc(struct msg_queue *msq)
 {
-	int rc = lsm_ipc_alloc(msq);
+	int rc = lsm_ipc_alloc(&msq->q_perm);
 
 	if (unlikely(rc))
 		return rc;
@@ -1704,8 +1716,8 @@ int security_msg_queue_alloc(struct msg_queue *msq)
 void security_msg_queue_free(struct msg_queue *msq)
 {
 	call_void_hook(msg_queue_free_security, msq);
-	kfree(msq->security);
-	msq->security = NULL;
+	kfree(msq->q_perm.security);
+	msq->q_perm.security = NULL;
 }
 
 int security_msg_queue_associate(struct msg_queue *msq, int msqflg)
@@ -1732,7 +1744,7 @@ int security_msg_queue_msgrcv(struct msg_queue *msq, struct msg_msg *msg,
 
 int security_shm_alloc(struct shmid_kernel *shp)
 {
-	int rc = lsm_ipc_alloc(shp);
+	int rc = lsm_ipc_alloc(&shp->shm_perm);
 
 	if (unlikely(rc))
 		return rc;
@@ -1745,8 +1757,8 @@ int security_shm_alloc(struct shmid_kernel *shp)
 void security_shm_free(struct shmid_kernel *shp)
 {
 	call_void_hook(shm_free_security, shp);
-	kfree(shp->security);
-	shp->security = NULL;
+	kfree(shp->shm_perm.security);
+	shp->shm_perm.security = NULL;
 }
 
 int security_shm_associate(struct shmid_kernel *shp, int shmflg)
@@ -1766,7 +1778,7 @@ int security_shm_shmat(struct shmid_kernel *shp, char __user *shmaddr, int shmfl
 
 int security_sem_alloc(struct sem_array *sma)
 {
-	int rc = lsm_ipc_alloc(sma);
+	int rc = lsm_ipc_alloc(&sma->sem_perm);
 
 	if (unlikely(rc))
 		return rc;
@@ -1779,8 +1791,8 @@ int security_sem_alloc(struct sem_array *sma)
 void security_sem_free(struct sem_array *sma)
 {
 	call_void_hook(sem_free_security, sma);
-	kfree(sma->security);
-	sma->security = NULL;
+	kfree(sma->sem_perm.security);
+	sma->sem_perm.security = NULL;
 }
 
 int security_sem_associate(struct sem_array *sma, int semflg)

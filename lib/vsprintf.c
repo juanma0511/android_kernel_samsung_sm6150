@@ -1686,7 +1686,7 @@ char *pointer_string(char *buf, char *end, const void *ptr,
 static bool have_filled_random_ptr_key __read_mostly;
 static siphash_key_t ptr_key __read_mostly;
 
-static void fill_random_ptr_key(struct random_ready_callback *unused)
+static void fill_random_ptr_key(void)
 {
 	get_random_bytes(&ptr_key, sizeof(ptr_key));
 	/*
@@ -1698,18 +1698,25 @@ static void fill_random_ptr_key(struct random_ready_callback *unused)
 	WRITE_ONCE(have_filled_random_ptr_key, true);
 }
 
-static struct random_ready_callback random_ready = {
-	.func = fill_random_ptr_key
+static int fill_random_ptr_key_notifier(struct notifier_block *nb,
+					unsigned long action, void *data)
+{
+	fill_random_ptr_key();
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block random_ready_notifier = {
+	.notifier_call = fill_random_ptr_key_notifier,
 };
 
 static int __init initialize_ptr_random(void)
 {
-	int ret = add_random_ready_callback(&random_ready);
+	int ret = register_random_ready_notifier(&random_ready_notifier);
 
 	if (!ret) {
 		return 0;
 	} else if (ret == -EALREADY) {
-		fill_random_ptr_key(&random_ready);
+		fill_random_ptr_key();
 		return 0;
 	}
 

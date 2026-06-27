@@ -322,6 +322,7 @@ struct smack_known *smk_import_entry(const char *, int);
 void smk_insert_entry(struct smack_known *skp);
 struct smack_known *smk_find_entry(const char *);
 bool smack_privileged(int cap);
+bool smack_privileged_cred(int cap, const struct cred *cred);
 void smk_destroy_label_list(struct list_head *list);
 
 /*
@@ -378,9 +379,10 @@ static inline struct smack_known **smack_msg_msg(const struct msg_msg *msg)
 	return msg->security + smack_blob_sizes.lbs_msg_msg;
 }
 
-static inline struct smack_known **smack_ipc(const struct kern_ipc_perm *ipc)
+static inline struct smack_known **smack_ipc(const void *ipc)
 {
-	return ipc->security + smack_blob_sizes.lbs_ipc;
+	const struct kern_ipc_perm *p = ipc;
+	return p->security + smack_blob_sizes.lbs_ipc;
 }
 
 /*
